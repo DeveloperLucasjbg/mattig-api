@@ -4,41 +4,50 @@ const xml2js = require("xml2js");
 const concat = require("concat-stream");
 
 const fetcher = new Promise((resolve) => {
+	let settled = false;
+	const safeResolve = (value) => {
+		if (settled) return;
+		settled = true;
+		resolve(value);
+	};
+
 	try {
 		const req = https.get(URI, (resp) => {
 			if (resp.statusCode !== 200) {
-				// Consumir y resolver vacío para no romper el servicio
 				resp.resume();
-				return resolve([]);
+				return safeResolve([]);
 			}
 
-			resp.on("error", () => {
-				return resolve([]);
-			});
+			resp.on("error", () => safeResolve([]));
 
 			resp.pipe(
 				concat((buffer) => {
 					const str = buffer.toString("utf8");
 					const parser = new xml2js.Parser({ explicitArray: false, trim: true });
+
+					parser.on("error", () => safeResolve([]));
+
 					parser.parseString(str, (err, result) => {
 						if (err || !result || !result.ADS) {
-							return resolve([]);
+							return safeResolve([]);
 						}
 						const adsNode = result.ADS.ad || [];
 						if (Array.isArray(adsNode)) {
-							return resolve(adsNode);
+							return safeResolve(adsNode);
 						}
-						return resolve([adsNode]);
+						return safeResolve([adsNode]);
 					});
 				})
-			);
+			).on("error", () => safeResolve([]));
 		});
 
-		req.on("error", () => {
-			return resolve([]);
+		req.on("error", () => safeResolve([]));
+		req.setTimeout(15000, () => {
+			try { req.destroy(); } catch (_) {}
+			safeResolve([]);
 		});
 	} catch (_) {
-		return resolve([]);
+		return safeResolve([]);
 	}
 });
 
