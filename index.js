@@ -7,12 +7,19 @@ app.listen(PORT, () => {
 	console.log("live on " + PORT);
 });
 app.get("/props", async (req, res) => {
-	counter++;
-	let props = await fetcher;
-	if (props) {
-		propsQuantity = props?.length;
-	}
-	res.status(200).send(props);
+    counter++;
+    console.log("[AdincoFeed] /props solicitado, contador:", counter);
+    try {
+        const props = await fetcher;
+        if (props) {
+            propsQuantity = props?.length;
+        }
+        console.log("[AdincoFeed] /props respondiendo cantidad:", propsQuantity);
+        res.status(200).send(props);
+    } catch (err) {
+        console.error("[AdincoFeed] Error sirviendo /props:", err);
+        res.status(500).send({ error: "Error interno obteniendo propiedades" });
+    }
 });
 app.get("/getCount", async (req, res) => {
 	res.status(200).send(counter.toString());
